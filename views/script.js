@@ -81,6 +81,11 @@ peer.on("call", function (call) {
 peer.on("open", (id) => {
   socket.emit("join-room", ROOM_ID, id);
 });
+peer.on("open", (id) => {
+    console.log("Peer ID:", id);
+    document.getElementById("peer-id").innerText = id; // Display Peer ID
+    socket.emit("join-room", ROOM_ID, id);
+});
 
 // CHAT
 
