@@ -1,33 +1,41 @@
 const express = require("express");
+const http = require("http");
 const { ExpressPeerServer } = require("peer");
 const cors = require("cors");
 
 const app = express();
-const PORT = process.env.PORT || 443;
+const server = http.createServer(app);
 
-// Enable CORS for all origins
-app.use(cors());
+// Enhanced CORS configuration
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST"],
+  credentials: true
+}));
 
-// Create HTTP server
-const server = app.listen(PORT, () => {
-    console.log(`✅ PeerJS Server running on port ${PORT}`);
-});
-
-// Initialize PeerJS Server
+// PeerJS Server Configuration
 const peerServer = ExpressPeerServer(server, {
-    debug: true,
-    path: "/peerjs",
-    allow_discovery: true
+  debug: true,
+  path: "/peerjs",
+  proxied: true, // Critical for cloud deployments
+  allow_discovery: true
 });
 
-// Use PeerJS Server Middleware
+// Handle discovery endpoint
+peerServer.on('discovery', (request) => {
+  // This enables the /peerjs/id endpoint
+  request.respond({});
+});
+
 app.use("/peerjs", peerServer);
 
-// Graceful Shutdown for Render
-process.on("SIGTERM", () => {
-    console.log("🔴 Shutting down PeerJS server...");
-    server.close(() => {
-        console.log("🛑 Server closed.");
-        process.exit(0);
-    });
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`ℹ️  PeerJS endpoint: http://localhost:${PORT}/peerjs`);
 });
