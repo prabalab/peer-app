@@ -1,41 +1,46 @@
 const express = require("express");
-const http = require("http");
-const { ExpressPeerServer } = require("peer");
-const cors = require("cors");
-
 const app = express();
-const server = http.createServer(app);
-
-// Enhanced CORS configuration
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST"],
-  credentials: true
-}));
-
-// PeerJS Server Configuration
+const dotenv = require('dotenv');
+dotenv.config();
+var random = Math.floor(1000 + Math.random() * 9000);
+const server = require("http").Server(app);
+const { v4: uuidv4 } = require("uuid");
+const io = require("socket.io")(server, {
+    cors: {
+        origin: "*",
+    },
+});
+// Peer
+const { ExpressPeerServer } = require("peer");
 const peerServer = ExpressPeerServer(server, {
   debug: true,
-  path: "/peerjs",
-  proxied: true, // Critical for cloud deployments
-  allow_discovery: true
+  port: 443
 });
+const PORT = 3000;
 
-// Handle discovery endpoint
-peerServer.on('discovery', (request) => {
-  // This enables the /peerjs/id endpoint
-  request.respond({});
-});
-
+app.set("view engine", "ejs");
+app.use(express.static("public"));
 app.use("/peerjs", peerServer);
 
-// Health check endpoint
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
+app.get("/", (req, rsp) => {
+  rsp.redirect(`/${random}`);
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`ℹ️  PeerJS endpoint: http://localhost:${PORT}/peerjs`);
+app.get("/:room", (req, res) => {
+  res.render("room", { roomId: req.params.room });
+});
+
+io.on("connection", (socket) => {
+  socket.on("join-room", (roomId, userId) => {
+    socket.join(roomId);
+    socket.to(roomId).broadcast.emit("user-connected", userId);
+
+    socket.on("message", (message) => {
+      io.to(roomId).emit("createMessage", message);
+    });
+  });
+});
+
+server.listen(PORT,()=>{
+    console.log("Started")
 });
